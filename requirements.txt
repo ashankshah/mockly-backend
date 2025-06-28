@@ -1,7 +1,5 @@
-
 fastapi
 uvicorn
-redis
-asyncpg
-sqlalchemy
-openai
+httpx
+python-dotenv
+pydantic
