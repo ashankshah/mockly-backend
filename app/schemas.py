@@ -1,9 +1,8 @@
 """
-- David Chung
-- Creation Date: 6/22/2025
-- Defines data models using pydantic:
+Data models using Pydantic for Mockly backend API
+Author: David Chung
+Creation Date: 6/22/2025
 """
-
 
 from pydantic import BaseModel
 

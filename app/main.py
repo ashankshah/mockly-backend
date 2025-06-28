@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 
-from app.scoring import score_session, analyze_star_structure
+from app.scoring import analyze_star_structure
 from app.schemas import (
     ScoreRequest, ScoreResponse, 
     STARRequest, STARResponse,
@@ -19,11 +19,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Helper functions
+def get_default_tips():
+    return {
+        "content": "Focus on providing specific examples and clear structure.",
+        "voice": "Reduce pauses and maintain consistent pace.",
+        "face": "Improve eye contact and maintain confident posture."
+    }
+
+def get_basic_response(metrics: dict, transcript: str):
+    voice_score = metrics.get('voice', {}).get('score', 3.5)
+    face_score = metrics.get('face', {}).get('score', 4.2)
+    
+    return {
+        "content_score": 3.5,
+        "voice_score": voice_score,
+        "face_score": face_score,
+        "tips": get_default_tips(),
+        "transcript_debug": transcript
+    }
+
 @app.post("/score-session", response_model=ScoreResponse)
 async def score_session_api(req: ScoreRequest):
     try:
-        result = await score_session(req)
-        return result
+        return get_basic_response(req.metrics, req.transcript)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -38,18 +57,15 @@ async def analyze_star_api(req: STARRequest):
 @app.post("/comprehensive-analysis", response_model=ComprehensiveAnalysisResponse)
 async def comprehensive_analysis_api(req: ComprehensiveAnalysisRequest):
     """
-    Comprehensive analysis endpoint that combines scoring and STAR analysis
+    Comprehensive analysis endpoint that focuses on STAR analysis
+    Simplified to only make one API call for faster response times
     """
     try:
-        # Get scoring results
-        scoring_result = await score_session(req)
-        
-        # Get STAR analysis
         star_result = await analyze_star_structure(req.transcript)
+        basic_response = get_basic_response(req.metrics, req.transcript)
         
-        # Combine results
         return {
-            **scoring_result,
+            **basic_response,
             "star_analysis": star_result
         }
     except Exception as e:
