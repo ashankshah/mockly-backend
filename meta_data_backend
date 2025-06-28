@@ -1,0 +1,300 @@
+# Mockly Backend Documentation
+
+## Project Overview
+
+**Mockly** is an AI-powered mock interview application that provides real-time feedback on interview performance. The system analyzes both verbal content and non-verbal cues (voice and facial expressions) to give comprehensive feedback to users practicing for job interviews.
+
+The backend is a FastAPI server that handles AI-powered analysis, scoring algorithms, and data processing. It provides RESTful APIs for the frontend to submit interview data and receive comprehensive feedback with actionable insights.
+
+## Architecture Overview
+
+Mockly follows a client-server architecture where:
+- **Frontend**: React.js application running on port 3000 (handles UI and user interaction)
+- **Backend**: FastAPI server running on port 8000 (handles AI analysis and scoring)
+- **AI Integration**: OpenRouter API for natural language processing and STAR method analysis
+- **Communication**: RESTful API calls with JSON data format
+
+## Backend Technology Stack
+
+- **FastAPI**: Modern Python web framework for building high-performance APIs
+- **Uvicorn**: ASGI server for running the FastAPI application
+- **OpenRouter**: AI service for natural language processing and text analysis
+- **Pydantic**: Data validation and serialization for request/response models
+- **httpx**: Async HTTP client for external API calls
+- **python-dotenv**: Environment variable management (used but not in requirements.txt)
+
+## Core Components
+
+### 1. Main Application (`app/main.py`)
+**Purpose**: FastAPI application entry point with middleware and endpoint definitions
+
+**Key Features**:
+- CORS middleware configured to allow frontend communication
+- Two main API endpoints: `/score-session` and `/analyze-star`
+- Comprehensive error handling with HTTP exceptions
+- Async endpoint handlers for optimal performance
+- Automatic API documentation with FastAPI
+
+**Middleware Configuration**:
+- CORS enabled for all origins (configurable for production)
+- Support for credentials and all HTTP methods
+- Allows all headers for flexible frontend integration
+
+### 2. Data Schemas (`app/schemas.py`)
+**Purpose**: Pydantic models for request/response validation and serialization
+
+**Request Models**:
+- **ScoreRequest**: Contains metrics (voice/face scores) and transcript
+- **STARRequest**: Contains transcript for STAR method analysis
+
+**Response Models**:
+- **ScoreResponse**: Comprehensive scoring with content, voice, face scores, tips, and debug transcript
+- **STARResponse**: Structured breakdown into Situation, Task, Action, Result categories
+
+**Validation Features**:
+- Automatic type checking and validation
+- Clear error messages for invalid data
+- JSON serialization/deserialization
+- API documentation generation
+
+### 3. Scoring Engine (`app/scoring.py`)
+**Purpose**: Core business logic for interview analysis and AI-powered scoring
+
+#### score_session() Function
+**Purpose**: Main scoring function that processes interview data and returns comprehensive feedback
+
+**Current Implementation**:
+- Returns mock content score (4.0) - placeholder for AI analysis
+- Extracts voice and face scores from incoming metrics
+- Provides generic improvement tips for each category
+- Returns debug transcript for development purposes
+
+**Input Processing**:
+- Accepts metrics dictionary with voice and face scores
+- Processes transcript text for analysis
+- Handles missing or invalid data gracefully
+
+**Output Structure**:
+```python
+{
+    "content_score": float,
+    "voice_score": float,
+    "face_score": float,
+    "tips": dict,
+    "transcript_debug": str
+}
+```
+
+#### analyze_star_structure() Function
+**Purpose**: AI-powered STAR method analysis using OpenRouter API
+
+**Technical Implementation**:
+- Uses OpenRouter API with Mixtral-8x7B model
+- Structured prompt engineering for consistent results
+- JSON response parsing with error handling
+- Fallback to empty arrays on API failures
+
+**AI Integration**:
+- **Model**: mistralai/mixtral-8x7b-instruct
+- **API Endpoint**: https://openrouter.ai/api/v1/chat/completions
+- **Authentication**: Bearer token from environment variable
+- **Response Format**: Structured JSON with categorized sentences
+
+**Prompt Engineering**:
+- Clear instructions for STAR format parsing
+- JSON-only response requirement
+- Specific format specification
+- Error handling for malformed responses
+
+## API Endpoints
+
+### 1. POST /score-session
+**Purpose**: Evaluate overall interview performance and provide comprehensive feedback
+
+**Request Format**:
+```json
+{
+    "metrics": {
+        "voice": {"score": 3.5},
+        "face": {"score": 4.2}
+    },
+    "transcript": "User's interview response text"
+}
+```
+
+**Response Format**:
+```json
+{
+    "content_score": 4.0,
+    "voice_score": 3.5,
+    "face_score": 4.2,
+    "tips": {
+        "content": "Structure using STAR.",
+        "voice": "Reduce pauses.",
+        "face": "Improve eye contact."
+    },
+    "transcript_debug": "Original transcript for verification"
+}
+```
+
+**Error Handling**:
+- 500 Internal Server Error for processing failures
+- Detailed error messages for debugging
+- Graceful handling of missing or invalid data
+
+### 2. POST /analyze-star
+**Purpose**: Analyze interview responses using STAR methodology
+
+**Request Format**:
+```json
+{
+    "transcript": "User's interview response text"
+}
+```
+
+**Response Format**:
+```json
+{
+    "situation": ["Sentence 1", "Sentence 2"],
+    "task": ["Sentence 3"],
+    "action": ["Sentence 4"],
+    "result": ["Sentence 5"]
+}
+```
+
+**AI Processing**:
+- Sends transcript to OpenRouter API
+- Parses AI response into structured format
+- Returns categorized sentences by STAR component
+- Fallback to empty arrays on API failures
+
+## Environment Configuration
+
+### Required Environment Variables
+- **OPENROUTER_API_KEY**: API key for OpenRouter service (required for STAR analysis)
+
+### Configuration Management
+- Uses python-dotenv for environment variable loading
+- Automatic loading from .env file
+- Debug logging for API key verification
+- Graceful handling of missing environment variables
+
+## Data Flow
+
+### 1. Interview Session Processing
+1. Frontend captures video/audio and generates transcript
+2. Frontend sends metrics and transcript to `/score-session`
+3. Backend processes data and returns comprehensive scoring
+4. Frontend displays feedback to user
+
+### 2. STAR Analysis Processing
+1. Frontend sends transcript to `/analyze-star`
+2. Backend forwards transcript to OpenRouter API
+3. AI model analyzes and categorizes response
+4. Backend parses and returns structured STAR breakdown
+
+## Error Handling and Reliability
+
+### API Error Handling
+- HTTP exception handling with appropriate status codes
+- Detailed error messages for debugging
+- Graceful degradation for AI service failures
+- Input validation with Pydantic models
+
+### AI Service Reliability
+- Timeout handling for external API calls
+- JSON parsing error recovery
+- Fallback responses for service unavailability
+- Debug logging for troubleshooting
+
+## Performance Considerations
+
+### Async Processing
+- All endpoints use async/await for non-blocking operations
+- Efficient HTTP client usage with httpx
+- Concurrent request handling with FastAPI
+
+### Resource Management
+- Proper cleanup of HTTP client connections
+- Memory-efficient JSON processing
+- Optimized prompt engineering for AI calls
+
+## Development Setup
+
+### Prerequisites
+- Python 3.7+ installed
+- OpenRouter API key for AI functionality
+- Virtual environment recommended
+
+### Installation and Running
+```bash
+cd mockly-backend
+pip install -r requirements.txt
+pip install python-dotenv  # Required but missing from requirements.txt
+uvicorn app.main:app --reload
+```
+
+### Development Features
+- Hot reloading with uvicorn --reload
+- Automatic API documentation at /docs
+- Interactive API testing with Swagger UI
+- Debug logging for development
+
+## Current Implementation Status
+
+### Working Features
+- ✅ FastAPI server with CORS middleware
+- ✅ Data validation with Pydantic models
+- ✅ AI-powered STAR method analysis
+- ✅ Mock scoring system
+- ✅ Error handling and logging
+- ✅ API documentation generation
+
+### Mock/Placeholder Features
+- ⚠️ Content scoring (fixed at 4.0)
+- ⚠️ Voice analysis (uses frontend-provided metrics)
+- ⚠️ Face analysis (uses frontend-provided metrics)
+- ⚠️ Generic improvement tips
+
+### Technical Limitations
+- Missing python-dotenv in requirements.txt
+- No database integration for data persistence
+- No user authentication or session management
+- Limited error recovery for AI service failures
+
+## Future Enhancements
+
+### AI and Analysis Improvements
+- Real AI-powered content scoring
+- Voice tone and pace analysis
+- Facial expression analysis integration
+- Customizable scoring algorithms
+- Advanced NLP for response quality assessment
+
+### Infrastructure Enhancements
+- Database integration for data persistence
+- User authentication and session management
+- Rate limiting and API security
+- Caching for improved performance
+- Monitoring and analytics
+
+### API Enhancements
+- Additional analysis endpoints
+- Batch processing capabilities
+- Real-time streaming responses
+- WebSocket support for live feedback
+- API versioning and backward compatibility
+
+## File Structure
+```
+mockly-backend/
+├── app/
+│   ├── main.py              # FastAPI application and endpoints
+│   ├── schemas.py           # Pydantic data models
+│   └── scoring.py           # Scoring logic and AI integration
+├── requirements.txt         # Python dependencies (missing python-dotenv)
+├── README.md               # Setup instructions
+└── venv/                   # Virtual environment (if used)
+```
+
+This documentation provides comprehensive coverage of the Mockly backend architecture, API design, and implementation details. 
