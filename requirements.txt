@@ -3,3 +3,22 @@ uvicorn
 httpx
 python-dotenv
 pydantic
+
+# Authentication and User Management
+fastapi-users[sqlalchemy]
+fastapi-users[oauth]
+aiofiles
+
+# Database
+sqlalchemy
+alembic
+
+# Security and OAuth
+authlib
+httpx-oauth
+python-jose[cryptography]
+passlib[bcrypt]
+
+# Additional utilities
+python-multipart
+emails
