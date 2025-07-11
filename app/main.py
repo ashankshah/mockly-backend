@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import RedirectResponse
 from contextlib import asynccontextmanager
 
 from app.scoring import analyze_star_structure
@@ -11,13 +12,17 @@ from app.database import Base, async_engine
 from app.models import User
 from app.auth import (
     fastapi_users, auth_backend, google_oauth_client, linkedin_oauth_client,
-    current_active_user, current_active_user_optional
+    current_active_user, current_active_user_optional, get_user_manager
 )
 from app.user_schemas import UserRead, UserCreate, UserUpdate
 from app.users import router as users_router, create_progress_record, UserProgressCreate
 
 from fastapi.middleware.cors import CORSMiddleware
 import json
+import os
+
+# Frontend URL configuration
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,17 +81,144 @@ app.include_router(
     tags=["users"],
 )
 
-# OAuth routes
-app.include_router(
-    fastapi_users.get_oauth_router(google_oauth_client, auth_backend, "SECRET"),
-    prefix="/auth/google",
-    tags=["auth"],
-)
-app.include_router(
-    fastapi_users.get_oauth_router(linkedin_oauth_client, auth_backend, "SECRET"),
-    prefix="/auth/linkedin",
-    tags=["auth"],
-)
+# OAuth routes - Remove the default ones and add custom ones
+from app.auth import SECRET
+
+# Custom OAuth authorization routes
+@app.get("/auth/google/authorize")
+async def google_authorize():
+    authorization_url = await google_oauth_client.get_authorization_url(
+        redirect_uri=f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/google/callback",
+        scope=["openid", "email", "profile"]
+    )
+    return {"authorization_url": authorization_url}
+
+@app.get("/auth/linkedin/authorize")
+async def linkedin_authorize():
+    authorization_url = await linkedin_oauth_client.get_authorization_url(
+        redirect_uri=f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/linkedin/callback"
+    )
+    return {"authorization_url": authorization_url}
+
+# Custom OAuth callback routes that redirect to frontend
+@app.get("/auth/google/callback")
+async def google_callback(
+    code: str,
+    state: str = None,
+    user_manager = Depends(get_user_manager)
+):
+    try:
+        # Get the OAuth access token
+        redirect_uri = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/google/callback"
+        token = await google_oauth_client.get_access_token(code, redirect_uri)
+        
+        # Fetch user info from Google using the access token
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {token['access_token']}"}
+            )
+            response.raise_for_status()
+            user_data = response.json()
+        
+        # Extract user info
+        google_id = user_data["id"]
+        email = user_data["email"]
+        
+        # Handle OAuth callback through user manager
+        user = await user_manager.oauth_callback(
+            oauth_name="google",
+            access_token=token['access_token'],
+            account_id=google_id,
+            account_email=email,
+            is_verified_by_default=True
+        )
+        
+        # Generate JWT token for the user
+        strategy = auth_backend.get_strategy()
+        jwt_token = await strategy.write_token(user)
+        
+        # Redirect to frontend with token
+        redirect_url = f"{FRONTEND_URL}/auth/google/callback?access_token={jwt_token}&token_type=bearer"
+        return RedirectResponse(url=redirect_url)
+        
+    except Exception as e:
+        print(f"OAuth callback error: {e}")
+        import traceback
+        traceback.print_exc()
+        # Redirect to frontend with error
+        return RedirectResponse(url=f"{FRONTEND_URL}/auth/google/callback?error=authentication_failed")
+
+@app.get("/auth/linkedin/callback")
+async def linkedin_callback(
+    code: str,
+    state: str = None,
+    user_manager = Depends(get_user_manager)
+):
+    try:
+        # Get the OAuth access token
+        redirect_uri = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/linkedin/callback"
+        token = await linkedin_oauth_client.get_access_token(code, redirect_uri)
+        
+        # Fetch user info from LinkedIn using the access token
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.linkedin.com/v2/people/~:(id,firstName,lastName,profilePicture(displayImage~:playableStreams))",
+                headers={"Authorization": f"Bearer {token['access_token']}"}
+            )
+            response.raise_for_status()
+            profile_data = response.json()
+            
+            # Get email separately (LinkedIn requires different endpoint)
+            email_response = await client.get(
+                "https://api.linkedin.com/v2/emailAddresses?q=members&projection=(elements*(handle~))",
+                headers={"Authorization": f"Bearer {token['access_token']}"}
+            )
+            email_response.raise_for_status()
+            email_data = email_response.json()
+        
+        # Extract user info
+        linkedin_id = profile_data["id"]
+        email = email_data["elements"][0]["handle~"]["emailAddress"]
+        
+        # Handle OAuth callback through user manager
+        user = await user_manager.oauth_callback(
+            oauth_name="linkedin",
+            access_token=token['access_token'],
+            account_id=linkedin_id,
+            account_email=email,
+            is_verified_by_default=True
+        )
+        
+        # Generate JWT token for the user
+        strategy = auth_backend.get_strategy()
+        jwt_token = await strategy.write_token(user)
+        
+        # Redirect to frontend with token
+        redirect_url = f"{FRONTEND_URL}/auth/linkedin/callback?access_token={jwt_token}&token_type=bearer"
+        return RedirectResponse(url=redirect_url)
+        
+    except Exception as e:
+        print(f"OAuth callback error: {e}")
+        import traceback
+        traceback.print_exc()
+        # Redirect to frontend with error
+        return RedirectResponse(url=f"{FRONTEND_URL}/auth/linkedin/callback?error=authentication_failed")
+
+# Remove the default OAuth routes to avoid conflicts
+# OAuth authorization routes (keep the original ones for getting auth URLs)
+# app.include_router(
+#     fastapi_users.get_oauth_router(google_oauth_client, auth_backend, SECRET),
+#     prefix="/auth/google",
+#     tags=["auth"],
+# )
+# app.include_router(
+#     fastapi_users.get_oauth_router(linkedin_oauth_client, auth_backend, SECRET),
+#     prefix="/auth/linkedin",
+#     tags=["auth"],
+# )
 
 # Helper functions
 def get_default_tips():

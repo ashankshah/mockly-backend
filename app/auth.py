@@ -6,6 +6,10 @@ Handles FastAPI Users setup, OAuth providers, and user management
 import os
 from typing import Optional
 import uuid
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
@@ -25,6 +29,7 @@ from app.database import get_async_session
 google_oauth_client = GoogleOAuth2(
     client_id=os.getenv("GOOGLE_OAUTH_CLIENT_ID", "your-google-client-id"),
     client_secret=os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "your-google-client-secret"),
+    scopes=["openid", "email", "profile"]
 )
 
 linkedin_oauth_client = LinkedInOAuth2(
@@ -51,6 +56,74 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         self, user: User, token: str, request: Optional[Request] = None
     ):
         print(f"Verification requested for user {user.id}. Verification token: {token}")
+
+    async def oauth_callback(
+        self,
+        oauth_name: str,
+        access_token: str,
+        account_id: str,
+        account_email: str,
+        expires_at: Optional[int] = None,
+        refresh_token: Optional[str] = None,
+        request: Optional[Request] = None,
+        *,
+        associate_by_email: bool = False,
+        is_verified_by_default: bool = False,
+    ) -> User:
+        """
+        Handle OAuth callback with account linking support.
+        If a user already exists with the same email, link the OAuth account.
+        """
+        try:
+            print(f"🔍 OAuth callback started: {oauth_name}, email: {account_email}, account_id: {account_id}")
+            
+            # Check if user already exists with this email
+            existing_user = await self.get_by_email(account_email)
+            print(f"🔍 Found existing user: {existing_user is not None}")
+            
+            if existing_user:
+                # Link OAuth account to existing user
+                print(f"🔗 Linking {oauth_name} account to existing user {existing_user.email}")
+                
+                # Prepare update dictionary
+                update_dict = {}
+                
+                # Update the OAuth ID field
+                if oauth_name == "google":
+                    update_dict["google_id"] = account_id
+                    print(f"🔗 Set google_id: {account_id}")
+                elif oauth_name == "linkedin":
+                    update_dict["linkedin_id"] = account_id
+                    print(f"🔗 Set linkedin_id: {account_id}")
+                
+                # Update user info if not already set
+                if not existing_user.is_verified and is_verified_by_default:
+                    update_dict["is_verified"] = True
+                    print("🔗 Set user as verified")
+                    
+                print("🔍 Updating user in database...")
+                updated_user = await self.user_db.update(existing_user, update_dict)
+                print("✅ User updated successfully")
+                return updated_user
+            
+            # Call the parent method to create a new user
+            print("🆕 Creating new user...")
+            return await super().oauth_callback(
+                oauth_name,
+                access_token,
+                account_id,
+                account_email,
+                expires_at,
+                refresh_token,
+                request,
+                associate_by_email=associate_by_email,
+                is_verified_by_default=is_verified_by_default,
+            )
+        except Exception as e:
+            print(f"❌ Error in oauth_callback: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
 async def get_user_db(session = Depends(get_async_session)):
     yield SQLAlchemyUserDatabase(session, User)
