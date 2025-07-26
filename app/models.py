@@ -4,7 +4,7 @@ Includes User model for authentication and Profile model for progress tracking
 """
 
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -27,6 +27,9 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     
     # Relationship to user progress
     progress_records = relationship("UserProgress", back_populates="user")
+    
+    # Relationship to starred questions
+    starred_questions = relationship("UserStarredQuestions")
 
 class UserProgress(Base):
     """
@@ -85,4 +88,21 @@ class UserStats(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
     
     # Relationship to user
-    user = relationship("User") 
+    user = relationship("User")
+
+class UserStarredQuestions(Base):
+    """
+    Model to track user's starred questions
+    """
+    __tablename__ = "user_starred_questions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+    question_id = Column(String(100), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationship back to user
+    user = relationship("User")
+    
+    # Unique constraint to prevent duplicate stars
+    __table_args__ = (UniqueConstraint('user_id', 'question_id', name='unique_user_question_star'),) 

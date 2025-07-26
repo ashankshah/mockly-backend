@@ -5,10 +5,12 @@ Creation Date: 6/22/2025
 """
 
 from pydantic import BaseModel
+from typing import Optional
 
 class ScoreRequest(BaseModel):
     metrics: dict
     transcript: str
+    question_id: Optional[str] = None
 
 class ScoreResponse(BaseModel):
     content_score: float
@@ -32,6 +34,7 @@ class STARResponse(BaseModel):
 class ComprehensiveAnalysisRequest(BaseModel):
     metrics: dict
     transcript: str
+    question_id: Optional[str] = None
 
 class ComprehensiveAnalysisResponse(BaseModel):
     content_score: float

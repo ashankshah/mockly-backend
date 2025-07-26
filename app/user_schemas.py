@@ -70,11 +70,27 @@ class UserStatsResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# Starred questions schemas
+class StarredQuestionCreate(BaseModel):
+    question_id: str
+
+class StarredQuestionResponse(BaseModel):
+    id: int
+    question_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class StarredQuestionsResponse(BaseModel):
+    starred_questions: List[StarredQuestionResponse]
+
 # User profile with aggregated data
 class UserProfileResponse(BaseModel):
     user: UserRead
     stats: Optional[UserStatsResponse]
     recent_progress: List[UserProgressResponse]
+    starred_questions: List[StarredQuestionResponse]
 
 # OAuth profile data
 class OAuthAccountCreate(BaseModel):

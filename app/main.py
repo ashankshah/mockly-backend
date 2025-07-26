@@ -22,7 +22,7 @@ import json
 import os
 
 # Frontend URL configuration
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.getenv("FRONTEND_URL")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,8 +43,10 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001", 
+        "http://localhost:3002",
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001"
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3002"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -250,15 +252,56 @@ async def score_session_api(
         
         # Save progress for authenticated users
         if user:
-            progress_data = UserProgressCreate(
-                question_type=req.metrics.get('question_type', 'general'),
-                content_score=response["content_score"],
-                voice_score=response["voice_score"],
-                face_score=response["face_score"],
-                transcript=req.transcript,
-                tips_provided=json.dumps(response["tips"])
-            )
-            # We'll save this in the background to not slow down the response
+            try:
+                from app.database import get_async_session
+                from sqlalchemy.ext.asyncio import AsyncSession
+                
+                async def save_progress_background():
+                    async for session in get_async_session():
+                        try:
+                            progress_data = UserProgressCreate(
+                                question_type=req.metrics.get('question_type', 'general'),
+                                question_text=req.question_id or req.metrics.get('question_text', req.metrics.get('selectedQuestion')),
+                                content_score=response["content_score"],
+                                voice_score=response["voice_score"],
+                                face_score=response["face_score"],
+                                transcript=req.transcript,
+                                tips_provided=json.dumps(response["tips"])
+                            )
+                            
+                            # Create progress record
+                            from app.models import UserProgress
+                            progress_record = UserProgress(
+                                user_id=user.id,
+                                question_type=progress_data.question_type,
+                                question_text=progress_data.question_text,
+                                content_score=progress_data.content_score,
+                                voice_score=progress_data.voice_score,
+                                face_score=progress_data.face_score,
+                                transcript=progress_data.transcript,
+                                tips_provided=progress_data.tips_provided
+                            )
+                            
+                            session.add(progress_record)
+                            await session.commit()
+                            
+                            # Update user statistics
+                            from app.users import update_user_stats
+                            await update_user_stats(user.id, session)
+                            
+                        except Exception as e:
+                            print(f"Error saving progress: {e}")
+                            await session.rollback()
+                        finally:
+                            break
+                
+                # Run progress saving in background
+                import asyncio
+                asyncio.create_task(save_progress_background())
+                
+            except Exception as e:
+                print(f"Error setting up progress saving: {e}")
+                # Continue without saving progress
             
         return response
     except Exception as e:
@@ -292,16 +335,58 @@ async def comprehensive_analysis_api(
         
         # Save progress for authenticated users
         if user:
-            progress_data = UserProgressCreate(
-                question_type=req.metrics.get('question_type', 'behavioral'),
-                content_score=response["content_score"],
-                voice_score=response["voice_score"],
-                face_score=response["face_score"],
-                transcript=req.transcript,
-                star_analysis=json.dumps(star_result),
-                tips_provided=json.dumps(response["tips"])
-            )
-            # Save progress in the background
+            try:
+                from app.database import get_async_session
+                from sqlalchemy.ext.asyncio import AsyncSession
+                
+                async def save_progress_background():
+                    async for session in get_async_session():
+                        try:
+                            progress_data = UserProgressCreate(
+                                question_type=req.metrics.get('question_type', 'behavioral'),
+                                question_text=req.question_id or req.metrics.get('question_text', req.metrics.get('selectedQuestion')),
+                                content_score=response["content_score"],
+                                voice_score=response["voice_score"],
+                                face_score=response["face_score"],
+                                transcript=req.transcript,
+                                star_analysis=json.dumps(star_result),
+                                tips_provided=json.dumps(response["tips"])
+                            )
+                            
+                            # Create progress record
+                            from app.models import UserProgress
+                            progress_record = UserProgress(
+                                user_id=user.id,
+                                question_type=progress_data.question_type,
+                                question_text=progress_data.question_text,
+                                content_score=progress_data.content_score,
+                                voice_score=progress_data.voice_score,
+                                face_score=progress_data.face_score,
+                                transcript=progress_data.transcript,
+                                star_analysis=progress_data.star_analysis,
+                                tips_provided=progress_data.tips_provided
+                            )
+                            
+                            session.add(progress_record)
+                            await session.commit()
+                            
+                            # Update user statistics
+                            from app.users import update_user_stats
+                            await update_user_stats(user.id, session)
+                            
+                        except Exception as e:
+                            print(f"Error saving progress: {e}")
+                            await session.rollback()
+                        finally:
+                            break
+                
+                # Run progress saving in background
+                import asyncio
+                asyncio.create_task(save_progress_background())
+                
+            except Exception as e:
+                print(f"Error setting up progress saving: {e}")
+                # Continue without saving progress
             
         return response
     except Exception as e:

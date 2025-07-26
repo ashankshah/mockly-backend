@@ -14,7 +14,8 @@ from app.database import get_async_session
 from app.models import User, UserProgress, UserStats
 from app.user_schemas import (
     UserRead, UserUpdate, UserProgressCreate, UserProgressResponse,
-    UserStatsResponse, UserProfileResponse
+    UserStatsResponse, UserProfileResponse, StarredQuestionCreate, 
+    StarredQuestionResponse, StarredQuestionsResponse
 )
 from app.auth import current_active_user
 
@@ -139,10 +140,20 @@ async def get_user_profile(
     progress_result = await session.execute(progress_query)
     recent_progress = progress_result.scalars().all()
     
+    # Get starred questions
+    from app.models import UserStarredQuestions
+    starred_query = select(UserStarredQuestions).where(
+        UserStarredQuestions.user_id == user.id
+    ).order_by(UserStarredQuestions.created_at.desc())
+    
+    starred_result = await session.execute(starred_query)
+    starred_questions = starred_result.scalars().all()
+    
     return UserProfileResponse(
         user=user,
         stats=user_stats,
-        recent_progress=recent_progress
+        recent_progress=recent_progress,
+        starred_questions=starred_questions
     )
 
 async def update_user_stats(user_id: str, session: AsyncSession):
@@ -191,3 +202,80 @@ async def update_user_stats(user_id: str, session: AsyncSession):
     user_stats.most_recent_session = most_recent
     
     await session.commit() 
+
+@router.get("/starred-questions", response_model=StarredQuestionsResponse)
+async def get_starred_questions(
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Get all starred questions for the current user"""
+    
+    from app.models import UserStarredQuestions
+    
+    query = select(UserStarredQuestions).where(
+        UserStarredQuestions.user_id == user.id
+    ).order_by(UserStarredQuestions.created_at.desc())
+    
+    result = await session.execute(query)
+    starred_questions = result.scalars().all()
+    
+    return StarredQuestionsResponse(starred_questions=starred_questions)
+
+@router.post("/starred-questions", response_model=StarredQuestionResponse)
+async def star_question(
+    starred_data: StarredQuestionCreate,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Star a question for the current user"""
+    
+    from app.models import UserStarredQuestions
+    
+    # Check if already starred
+    existing_query = select(UserStarredQuestions).where(
+        UserStarredQuestions.user_id == user.id,
+        UserStarredQuestions.question_id == starred_data.question_id
+    )
+    existing_result = await session.execute(existing_query)
+    existing_star = existing_result.scalar_one_or_none()
+    
+    if existing_star:
+        return existing_star  # Already starred
+    
+    # Create new starred question
+    starred_question = UserStarredQuestions(
+        user_id=user.id,
+        question_id=starred_data.question_id
+    )
+    
+    session.add(starred_question)
+    await session.commit()
+    await session.refresh(starred_question)
+    
+    return starred_question
+
+@router.delete("/starred-questions/{question_id}")
+async def unstar_question(
+    question_id: str,
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Unstar a question for the current user"""
+    
+    from app.models import UserStarredQuestions
+    
+    query = select(UserStarredQuestions).where(
+        UserStarredQuestions.user_id == user.id,
+        UserStarredQuestions.question_id == question_id
+    )
+    
+    result = await session.execute(query)
+    starred_question = result.scalar_one_or_none()
+    
+    if not starred_question:
+        raise HTTPException(status_code=404, detail="Question not starred")
+    
+    await session.delete(starred_question)
+    await session.commit()
+    
+    return {"message": "Question unstarred successfully"} 
