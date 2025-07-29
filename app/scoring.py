@@ -20,7 +20,8 @@ DEFAULT_STAR_RESPONSE = {
     "situation": [],
     "task": [],
     "action": [],
-    "result": []
+    "result": [],
+    "score": 0
 }
 
 async def analyze_star_structure(transcript: str):
@@ -32,16 +33,17 @@ async def analyze_star_structure(transcript: str):
         return DEFAULT_STAR_RESPONSE
 
     prompt = f"""
-Analyze the following interview response and break it down into the STAR format (Situation, Task, Action, Result).
+You are an expert behavioral interview coach. Given the following candidate's interview response, break it down into STAR format (Situation, Task, Action, Result).
 
-For each category, extract the relevant sentences. If a category is not present, use an empty array.
+For each category, extract the relevant sentences. If a category is not present, use an empty array. Then, assign an objective score from 0 to 75 based on clarity, completeness, and impact of the response.
 
 Respond with *only* valid JSON in this exact format:
 {{
   "situation": ["Sentence describing the context or background"],
   "task": ["Sentence describing what needed to be accomplished"],
   "action": ["Sentences describing what you did"],
-  "result": ["Sentences describing the outcomes and impact"]
+  "result": ["Sentences describing the outcomes and impact"],
+  "score": [Score from 0-75, inclusive]
 }}
 
 Interview Response:
@@ -75,7 +77,8 @@ Interview Response:
                 "situation": result.get("situation", []),
                 "task": result.get("task", []),
                 "action": result.get("action", []),
-                "result": result.get("result", [])
+                "result": result.get("result", []),
+                "score": result.get("score", 0)
             }
             
         except Exception as e:
