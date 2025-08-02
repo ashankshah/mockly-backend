@@ -33,16 +33,18 @@ async def analyze_star_structure(transcript: str):
         return DEFAULT_STAR_RESPONSE
 
     prompt = f"""
-You are an expert behavioral interview coach. Given the following candidate's interview response, break it down into STAR format (Situation, Task, Action, Result).
+Given the following candidate's interview response, break it down into STAR format (Situation, Task, Action, Result).
 
-For each category, extract the relevant sentences. If a category is not present, use an empty array. Then, assign an objective score from 0 to 75 based on clarity, completeness, and impact of the response.
+For each category, extract the relevant sentences if they are clear. If a category is not descriptively present, use an empty array. 
+
+Then, assign an objective score from 0 to 75 based on clarity, completeness, and impact of the response, regardless of STAR.
 
 Respond with *only* valid JSON in this exact format:
 {{
-  "situation": ["Sentence describing the context or background"],
-  "task": ["Sentence describing what needed to be accomplished"],
-  "action": ["Sentences describing what you did"],
-  "result": ["Sentences describing the outcomes and impact"],
+  "situation": ["Sentence from response describing context or background"],
+  "task": ["Sentence from response describing what needed to be accomplished"],
+  "action": ["Sentences from response describing what you did"],
+  "result": ["Sentences from response describing the outcomes and impact"],
   "score": [Score from 0-75, inclusive]
 }}
 
