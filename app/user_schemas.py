@@ -19,6 +19,8 @@ class UserRead(schemas.BaseUser[uuid.UUID]):
 class UserCreate(schemas.BaseUserCreate):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    google_id: Optional[str] = None
+    linkedin_id: Optional[str] = None
 
 class UserUpdate(schemas.BaseUserUpdate):
     first_name: Optional[str] = None

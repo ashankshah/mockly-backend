@@ -110,19 +110,35 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 print("✅ User updated successfully")
                 return updated_user
             
-            # Call the parent method to create a new user
+            # Create a new user manually since SQLAlchemy adapter doesn't support OAuth
             print("🆕 Creating new user...")
-            return await super().oauth_callback(
-                oauth_name,
-                access_token,
-                account_id,
-                account_email,
-                expires_at,
-                refresh_token,
-                request,
-                associate_by_email=associate_by_email,
-                is_verified_by_default=is_verified_by_default,
-            )
+            
+            # Generate a secure random password (user won't use it since they login via OAuth)
+            import secrets
+            random_password = secrets.token_urlsafe(32)
+            
+            # Create user data
+            user_create_data = {
+                "email": account_email,
+                "password": random_password,  # Will be hashed automatically
+                "is_verified": is_verified_by_default,
+            }
+            
+            # Add OAuth ID field
+            if oauth_name == "google":
+                user_create_data["google_id"] = account_id
+            elif oauth_name == "linkedin":
+                user_create_data["linkedin_id"] = account_id
+                
+            print(f"🔍 Creating user with data: email={account_email}, oauth_id={account_id}")
+            
+            # Create the user using the standard create method
+            from app.user_schemas import UserCreate
+            user_create = UserCreate(**user_create_data)
+            new_user = await self.create(user_create, safe=False, request=request)
+            
+            print(f"✅ Created new user: {new_user.email} (ID: {new_user.id})")
+            return new_user
         except Exception as e:
             print(f"❌ Error in oauth_callback: {type(e).__name__}: {e}")
             import traceback

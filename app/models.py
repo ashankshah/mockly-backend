@@ -29,7 +29,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     progress_records = relationship("UserProgress", back_populates="user")
     
     # Relationship to starred questions
-    starred_questions = relationship("UserStarredQuestions")
+    starred_questions = relationship("UserStarredQuestions", back_populates="user")
 
 class UserProgress(Base):
     """
@@ -102,7 +102,7 @@ class UserStarredQuestions(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationship back to user
-    user = relationship("User")
+    user = relationship("User", back_populates="starred_questions")
     
     # Unique constraint to prevent duplicate stars
     __table_args__ = (UniqueConstraint('user_id', 'question_id', name='unique_user_question_star'),) 
