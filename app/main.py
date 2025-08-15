@@ -106,9 +106,12 @@ async def google_callback(
     user_manager = Depends(get_user_manager)
 ):
     try:
+        print(f"🔍 OAuth callback started - code: {code[:10]}... state: {state}")
         # Get the OAuth access token
         redirect_uri = f"{os.getenv('BACKEND_URL')}/auth/google/callback"
+        print(f"🔍 Using redirect_uri: {redirect_uri}")
         token = await google_oauth_client.get_access_token(code, redirect_uri)
+        print(f"✅ Got access token from Google")
         
         # Fetch user info from Google using the access token
         import httpx

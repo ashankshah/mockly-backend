@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import Depends, Request
-from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin
+from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin, exceptions
 from fastapi_users.authentication import (
     AuthenticationBackend,
     BearerTransport,
@@ -78,8 +78,12 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             print(f"🔍 OAuth callback started: {oauth_name}, email: {account_email}, account_id: {account_id}")
             
             # Check if user already exists with this email
-            existing_user = await self.get_by_email(account_email)
-            print(f"🔍 Found existing user: {existing_user is not None}")
+            try:
+                existing_user = await self.get_by_email(account_email)
+                print(f"🔍 Found existing user: {existing_user.email}")
+            except exceptions.UserNotExists:
+                existing_user = None
+                print(f"🔍 No existing user found, will create new user")
             
             if existing_user:
                 # Link OAuth account to existing user
