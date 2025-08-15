@@ -13,6 +13,7 @@ aiofiles
 sqlalchemy
 alembic
 psycopg2-binary
+asyncpg
 aiosqlite
 
 # Security and OAuth

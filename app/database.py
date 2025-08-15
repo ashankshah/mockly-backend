@@ -16,11 +16,19 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///:memory:")
 
 # Handle both sync and async URLs properly
 if DATABASE_URL.startswith("sqlite+aiosqlite:"):
-    # If async URL is provided, derive sync URL from it
+    # If async SQLite URL is provided, derive sync URL from it
     SYNC_DATABASE_URL = DATABASE_URL.replace("sqlite+aiosqlite:", "sqlite:")
     ASYNC_DATABASE_URL = DATABASE_URL
+elif DATABASE_URL.startswith("postgresql+asyncpg:"):
+    # If async PostgreSQL URL is provided, derive sync URL from it
+    SYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg:", "postgresql:")
+    ASYNC_DATABASE_URL = DATABASE_URL
+elif DATABASE_URL.startswith("postgresql:"):
+    # If sync PostgreSQL URL is provided, derive async URL from it
+    SYNC_DATABASE_URL = DATABASE_URL
+    ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql:", "postgresql+asyncpg:")
 else:
-    # If sync URL is provided, derive async URL from it
+    # If sync SQLite URL is provided, derive async URL from it
     SYNC_DATABASE_URL = DATABASE_URL
     ASYNC_DATABASE_URL = DATABASE_URL.replace("sqlite:", "sqlite+aiosqlite:")
 
