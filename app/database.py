@@ -11,7 +11,8 @@ from typing import AsyncGenerator
 import os
 
 # Database URL - using SQLite for simplicity
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mockly.db")
+# Use in-memory SQLite for production deployments where filesystem is read-only
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///:memory:")
 
 # Handle both sync and async URLs properly
 if DATABASE_URL.startswith("sqlite+aiosqlite:"):
@@ -23,9 +24,16 @@ else:
     SYNC_DATABASE_URL = DATABASE_URL
     ASYNC_DATABASE_URL = DATABASE_URL.replace("sqlite:", "sqlite+aiosqlite:")
 
-# Create engines
-engine = create_engine(SYNC_DATABASE_URL, connect_args={"check_same_thread": False})
-async_engine = create_async_engine(ASYNC_DATABASE_URL, connect_args={"check_same_thread": False})
+# Create engines with conditional connect_args for SQLite only
+if "sqlite" in SYNC_DATABASE_URL:
+    engine = create_engine(SYNC_DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    engine = create_engine(SYNC_DATABASE_URL)
+
+if "sqlite" in ASYNC_DATABASE_URL:
+    async_engine = create_async_engine(ASYNC_DATABASE_URL, connect_args={"check_same_thread": False})
+else:
+    async_engine = create_async_engine(ASYNC_DATABASE_URL)
 
 # Create session makers
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

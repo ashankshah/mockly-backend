@@ -12,6 +12,8 @@ aiofiles
 # Database
 sqlalchemy
 alembic
+psycopg2-binary
+aiosqlite
 
 # Security and OAuth
 authlib
