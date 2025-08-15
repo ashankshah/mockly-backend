@@ -86,7 +86,7 @@ from app.auth import SECRET
 @app.get("/auth/google/authorize")
 async def google_authorize():
     authorization_url = await google_oauth_client.get_authorization_url(
-        redirect_uri=f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/google/callback",
+        redirect_uri=f"{os.getenv('BACKEND_URL')}/auth/google/callback",
         scope=["openid", "email", "profile"]
     )
     return {"authorization_url": authorization_url}
@@ -94,7 +94,7 @@ async def google_authorize():
 @app.get("/auth/linkedin/authorize")
 async def linkedin_authorize():
     authorization_url = await linkedin_oauth_client.get_authorization_url(
-        redirect_uri=f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/linkedin/callback"
+        redirect_uri=f"{os.getenv('BACKEND_URL')}/auth/linkedin/callback"
     )
     return {"authorization_url": authorization_url}
 
@@ -107,7 +107,7 @@ async def google_callback(
 ):
     try:
         # Get the OAuth access token
-        redirect_uri = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/google/callback"
+        redirect_uri = f"{os.getenv('BACKEND_URL')}/auth/google/callback"
         token = await google_oauth_client.get_access_token(code, redirect_uri)
         
         # Fetch user info from Google using the access token
@@ -156,7 +156,7 @@ async def linkedin_callback(
 ):
     try:
         # Get the OAuth access token
-        redirect_uri = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/auth/linkedin/callback"
+        redirect_uri = f"{os.getenv('BACKEND_URL')}/auth/linkedin/callback"
         token = await linkedin_oauth_client.get_access_token(code, redirect_uri)
         
         # Fetch user info from LinkedIn using the access token
