@@ -268,6 +268,12 @@ async def score_session_api(
                                 tips_provided=json.dumps(response["tips"])
                             )
                             
+                            # Calculate overall score
+                            scores = [progress_data.content_score, progress_data.voice_score, progress_data.face_score]
+                            valid_scores = [score for score in scores if score is not None]
+                            overall_score = sum(valid_scores) / len(valid_scores) if valid_scores else None
+                            
+
                             # Create progress record
                             from app.models import UserProgress
                             progress_record = UserProgress(
@@ -277,6 +283,7 @@ async def score_session_api(
                                 content_score=progress_data.content_score,
                                 voice_score=progress_data.voice_score,
                                 face_score=progress_data.face_score,
+                                overall_score=overall_score,
                                 transcript=progress_data.transcript,
                                 tips_provided=progress_data.tips_provided
                             )
@@ -352,6 +359,12 @@ async def comprehensive_analysis_api(
                                 tips_provided=json.dumps(response["tips"])
                             )
                             
+                            # Calculate overall score
+                            scores = [progress_data.content_score, progress_data.voice_score, progress_data.face_score]
+                            valid_scores = [score for score in scores if score is not None]
+                            overall_score = sum(valid_scores) / len(valid_scores) if valid_scores else None
+                            
+
                             # Create progress record
                             from app.models import UserProgress
                             progress_record = UserProgress(
@@ -361,6 +374,7 @@ async def comprehensive_analysis_api(
                                 content_score=progress_data.content_score,
                                 voice_score=progress_data.voice_score,
                                 face_score=progress_data.face_score,
+                                overall_score=overall_score,
                                 transcript=progress_data.transcript,
                                 star_analysis=progress_data.star_analysis,
                                 tips_provided=progress_data.tips_provided

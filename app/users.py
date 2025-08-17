@@ -163,6 +163,7 @@ async def get_user_profile(
     starred_result = await session.execute(starred_query)
     starred_questions = starred_result.scalars().all()
     
+
     return UserProfileResponse(
         user=user,
         stats=user_stats,
@@ -215,7 +216,53 @@ async def update_user_stats(user_id: str, session: AsyncSession):
     user_stats.best_overall_score = best_overall
     user_stats.most_recent_session = most_recent
     
-    await session.commit() 
+    await session.commit()
+    await session.refresh(user_stats)
+
+@router.post("/recalculate-stats")
+async def recalculate_user_stats(
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Manually recalculate user statistics - for debugging"""
+    await update_user_stats(user.id, session)
+    
+    # Return updated stats
+    stats_query = select(UserStats).where(UserStats.user_id == user.id)
+    result = await session.execute(stats_query)
+    user_stats = result.scalar_one_or_none()
+    
+    return {
+        "message": "Stats recalculated",
+        "stats": user_stats
+    }
+
+@router.get("/debug-progress")
+async def debug_user_progress(
+    user: User = Depends(current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Debug endpoint to see user progress records"""
+    progress_query = select(UserProgress).where(UserProgress.user_id == user.id)
+    result = await session.execute(progress_query)
+    progress_records = result.scalars().all()
+    
+    return {
+        "user_id": str(user.id),
+        "total_records": len(progress_records),
+        "records": [
+            {
+                "id": p.id,
+                "session_date": p.session_date,
+                "content_score": p.content_score,
+                "voice_score": p.voice_score,
+                "face_score": p.face_score,
+                "overall_score": p.overall_score,
+                "question_text": p.question_text[:50] + "..." if p.question_text and len(p.question_text) > 50 else p.question_text
+            }
+            for p in progress_records
+        ]
+    } 
 
 @router.get("/starred-questions", response_model=StarredQuestionsResponse)
 async def get_starred_questions(
