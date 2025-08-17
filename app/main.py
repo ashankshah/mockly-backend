@@ -230,11 +230,24 @@ def get_default_tips():
     }
 
 def get_basic_response(metrics: dict, transcript: str):
-    voice_score = metrics.get('voice', {}).get('score', 3.5)
-    face_score = metrics.get('face', {}).get('score', 4.2)
+    # Extract scores from frontend metrics, default to 0 if not provided
+    content_score = metrics.get('content_score', 0)
+    voice_score = metrics.get('voice_score', 0) 
+    face_score = metrics.get('face_score', 0)
+    
+    # Also check legacy nested structure for backward compatibility
+    if content_score == 0:
+        content_score = metrics.get('content', {}).get('score', 0)
+    if voice_score == 0:
+        voice_score = metrics.get('voice', {}).get('score', 0)
+    if face_score == 0:
+        face_score = metrics.get('face', {}).get('score', 0)
+    
+    print(f"Backend scoring - received metrics keys: {list(metrics.keys())}")
+    print(f"Backend scoring - extracted scores: content={content_score}, voice={voice_score}, face={face_score}")
     
     return {
-        "content_score": 3.5,
+        "content_score": content_score,
         "voice_score": voice_score,
         "face_score": face_score,
         "tips": get_default_tips(),
@@ -333,6 +346,15 @@ async def comprehensive_analysis_api(
     try:
         star_result = await analyze_star_structure(req.transcript)
         basic_response = get_basic_response(req.metrics, req.transcript)
+        
+        # Calculate content score based on STAR analysis if available
+        if basic_response['content_score'] == 0 and star_result:
+            star_components = ['situation', 'task', 'action', 'result']
+            present_count = sum(1 for key in star_components if star_result.get(key) and len(star_result[key]) > 0)
+            bonus = (present_count / 4) * 25
+            base_score = star_result.get('score', 0) if isinstance(star_result.get('score'), (int, float)) else 0
+            content_score = round(base_score + bonus)
+            basic_response['content_score'] = content_score
         
         response = {
             **basic_response,

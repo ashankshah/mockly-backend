@@ -182,6 +182,20 @@ async def update_user_stats(user_id: str, session: AsyncSession):
     if not progress_records:
         return
     
+    print(f"Updating stats for user {user_id} with {len(progress_records)} sessions")
+    
+    # Fix any records with missing overall_score by recalculating from individual scores
+    for record in progress_records:
+        if record.overall_score is None:
+            scores = [record.content_score, record.voice_score, record.face_score]
+            valid_scores = [score for score in scores if score is not None]
+            if valid_scores:
+                record.overall_score = sum(valid_scores) / len(valid_scores)
+                print(f"Fixed missing overall_score for record {record.id}: {record.overall_score}")
+    
+    # Commit the fixes
+    await session.commit()
+    
     # Calculate aggregated statistics
     total_sessions = len(progress_records)
     
