@@ -25,3 +25,6 @@ passlib[bcrypt]
 # Additional utilities
 python-multipart
 emails
+
+# Analytics
+posthog

@@ -18,6 +18,7 @@ from app.user_schemas import (
     StarredQuestionResponse, StarredQuestionsResponse
 )
 from app.auth import current_active_user
+from app.analytics import track_user_progress_saved
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -79,6 +80,19 @@ async def create_progress_record(
     
     # Update user statistics
     await update_user_stats(user.id, session)
+    
+    # Track progress saved for analytics
+    track_user_progress_saved(str(user.id), {
+        'content_score': progress_data.content_score,
+        'voice_score': progress_data.voice_score,
+        'face_score': progress_data.face_score,
+        'overall_score': overall_score,
+        'question_type': progress_data.question_type,
+        'session_duration_seconds': progress_data.session_duration_seconds,
+        'transcript': progress_data.transcript,
+        'star_analysis': progress_data.star_analysis,
+        'tips_provided': progress_data.tips_provided,
+    })
     
     return progress_record
 
