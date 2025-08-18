@@ -13,7 +13,7 @@ load_dotenv()
 # Configuration constants
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_API = "https://openrouter.ai/api/v1/chat/completions"
-MISTRAL_MODEL = "mistralai/mistral-7b-instruct-v0.2"
+MISTRAL_MODEL = "mistralai/mistral-7b-instruct"
 
 # Default response for error cases
 DEFAULT_STAR_RESPONSE = {
