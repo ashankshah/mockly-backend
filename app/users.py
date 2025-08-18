@@ -168,7 +168,8 @@ async def get_user_profile(
         user=user,
         stats=user_stats,
         recent_progress=recent_progress,
-        starred_questions=starred_questions
+        starred_questions=starred_questions,
+        credits=user.credits
     )
 
 async def update_user_stats(user_id: str, session: AsyncSession):

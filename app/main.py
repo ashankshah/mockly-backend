@@ -16,10 +16,12 @@ from app.auth import (
 )
 from app.user_schemas import UserRead, UserCreate, UserUpdate
 from app.users import router as users_router, create_progress_record, UserProgressCreate
+from app.credits import router as credits_router
 
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
+import uuid
 
 # Frontend URL configuration
 FRONTEND_URL = os.getenv("FRONTEND_URL")
@@ -71,6 +73,9 @@ app.include_router(
 
 # Include custom user routes FIRST (before generic FastAPI Users routes)
 app.include_router(users_router)
+
+# Include credit management routes
+app.include_router(credits_router)
 
 # Include FastAPI Users generic routes AFTER custom routes
 app.include_router(
@@ -260,6 +265,45 @@ async def score_session_api(
     user: User = Depends(current_active_user_optional)
 ):
     try:
+        # Check and deduct credits for authenticated users
+        if user:
+            from app.database import get_async_session
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from app.credits import validate_credits_for_session, deduct_credits
+            
+            async def process_credits():
+                async for session in get_async_session():
+                    try:
+                        # Validate user has enough credits
+                        await validate_credits_for_session(user, session, 1)
+                        
+                        # Deduct 1 credit for starting the session
+                        success = await deduct_credits(
+                            user_id=user.id,
+                            session=session,
+                            amount=1,
+                            transaction_type="session_start",
+                            description="Interview session started",
+                            session_id=f"session_{uuid.uuid4().hex[:8]}"
+                        )
+                        
+                        if not success:
+                            raise HTTPException(
+                                status_code=402,
+                                detail="Failed to deduct credits. Please try again."
+                            )
+                        
+                    except Exception as e:
+                        print(f"Error processing credits: {e}")
+                        await session.rollback()
+                        raise e
+                    finally:
+                        break
+            
+            # Process credits before continuing
+            import asyncio
+            await asyncio.create_task(process_credits())
+        
         response = get_basic_response(req.metrics, req.transcript)
         
         # Save progress for authenticated users
@@ -344,6 +388,45 @@ async def comprehensive_analysis_api(
     Simplified to only make one API call for faster response times
     """
     try:
+        # Check and deduct credits for authenticated users
+        if user:
+            from app.database import get_async_session
+            from sqlalchemy.ext.asyncio import AsyncSession
+            from app.credits import validate_credits_for_session, deduct_credits
+            
+            async def process_credits():
+                async for session in get_async_session():
+                    try:
+                        # Validate user has enough credits
+                        await validate_credits_for_session(user, session, 1)
+                        
+                        # Deduct 1 credit for starting the session
+                        success = await deduct_credits(
+                            user_id=user.id,
+                            session=session,
+                            amount=1,
+                            transaction_type="session_start",
+                            description="Comprehensive interview session started",
+                            session_id=f"session_{uuid.uuid4().hex[:8]}"
+                        )
+                        
+                        if not success:
+                            raise HTTPException(
+                                status_code=402,
+                                detail="Failed to deduct credits. Please try again."
+                            )
+                        
+                    except Exception as e:
+                        print(f"Error processing credits: {e}")
+                        await session.rollback()
+                        raise e
+                    finally:
+                        break
+            
+            # Process credits before continuing
+            import asyncio
+            await asyncio.create_task(process_credits())
+        
         star_result = await analyze_star_structure(req.transcript)
         basic_response = get_basic_response(req.metrics, req.transcript)
         
@@ -426,4 +509,43 @@ async def comprehensive_analysis_api(
         return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/check-session-eligibility")
+async def check_session_eligibility(
+    user: User = Depends(current_active_user_optional)
+):
+    """
+    Check if user can start a new interview session
+    Returns credit balance and eligibility status
+    """
+    if not user:
+        return {
+            "eligible": False,
+            "reason": "User not authenticated",
+            "credits": 0
+        }
+    
+    from app.database import get_async_session
+    from app.credits import check_user_credits
+    
+    async def check_credits():
+        async for session in get_async_session():
+            try:
+                has_credits = await check_user_credits(user.id, session, 1)
+                return has_credits
+            except Exception as e:
+                print(f"Error checking credits: {e}")
+                return False
+            finally:
+                break
+    
+    import asyncio
+    has_credits = await asyncio.create_task(check_credits())
+    
+    return {
+        "eligible": has_credits,
+        "reason": "Insufficient credits" if not has_credits else "Eligible",
+        "credits": user.credits,
+        "required_credits": 1
+    }
 

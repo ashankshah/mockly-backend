@@ -22,6 +22,7 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     profile_picture_url = Column(String(255), nullable=True)
     linkedin_id = Column(String(100), nullable=True, unique=True)
     google_id = Column(String(100), nullable=True, unique=True)
+    credits = Column(Integer, default=5, nullable=False)  # Users start with 5 credits
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -106,3 +107,27 @@ class UserStarredQuestions(Base):
     
     # Unique constraint to prevent duplicate stars
     __table_args__ = (UniqueConstraint('user_id', 'question_id', name='unique_user_question_star'),) 
+
+class UserCreditTransaction(Base):
+    """
+    Model to track user credit transactions
+    """
+    __tablename__ = "user_credit_transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user.id"), nullable=False)
+    
+    # Transaction details
+    transaction_type = Column(String(50), nullable=False)  # "session_start", "purchase", "refund", etc.
+    credits_change = Column(Integer, nullable=False)  # Negative for deductions, positive for additions
+    credits_balance_after = Column(Integer, nullable=False)  # Balance after transaction
+    description = Column(String(255), nullable=True)  # Human-readable description
+    
+    # Session details (if applicable)
+    session_id = Column(String(100), nullable=True)  # Reference to interview session
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationship back to user
+    user = relationship("User") 
